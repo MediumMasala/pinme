@@ -1,19 +1,19 @@
+// src/mastra/agents/pinme-agent.ts
 import { Agent } from '@mastra/core';
 import { openai } from '@ai-sdk/openai';
-import { config } from '../config.js';
+import { config } from '../../config.js';
 import {
   logExpenseTool,
   markReimbursementTool,
   splitBillTool,
   saveContactsTool,
+  getSummaryTool,
   sendMessageTool,
   getUserTool,
   createUserTool,
   updateUserNameTool,
   completeOnboardingTool,
-  parseReceiptTool,
-  getSummaryTool,
-} from './tools/index.js';
+} from '../tools/pinme-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
 You are **PinMe**, a WhatsApp-first personal expense assistant.
@@ -106,7 +106,7 @@ Your behaviour:
 - Understand:
   - amount
   - currency (assume INR if not said)
-  - category (e.g. FOOD, TRAVEL, GROCERIES, SHOPPING, BILLS, OTHER)
+  - category (e.g. FOOD, TRAVEL)
   - description (short label)
   - date/time ("aaj", "kal" etc.)
 - Ask a small clarification only if you really cannot infer amount/date.
@@ -122,9 +122,10 @@ Your behaviour:
 2) Log an expense from a bill photo
 
 If the user sends an image that looks like a bill/receipt:
-- Use parseReceipt tool to extract details
-- Use logExpense tool with those details
-- Confirm using sendMessage:
+- Treat it as an expense.
+- The system will OCR/parse it for you; you get back amount, merchant, date, etc.
+- Use the logExpense tool with those details.
+- Confirm something like:
 
   "Bill scan kar liya.
   ✅ ₹{amount} from {merchant} added under {category}.
@@ -141,7 +142,7 @@ Your behaviour:
 - Figure out which expense(s) they refer to:
   - "ye / this" -> usually the last relevant expense.
   - If ambiguous, show a couple of recent options and ask them to pick.
-- Call markReimbursement tool to mark them reimbursable.
+- Call the markReimbursement tool to mark them reimbursable.
 - Confirm using sendMessage:
 
   "Done.
@@ -155,14 +156,14 @@ User asks:
 - "How much did I spend this week?"
 
 Your behaviour:
-- Call getSummary tool for the correct time range (today/week/month).
+- Call the getSummary tool for the correct time range.
 - Then reply using sendMessage:
 
   First message:
   "Ek min, tera ledger khol raha hoon… 📒"
 
   Second message:
-  "Aaj ka total: ₹{total}
+  "Aaj ka total: ₹{totalToday}
   - Food: ₹{foodTotal} ({foodCount} items)
   - Travel: ₹{travelTotal} ({travelCount} items)
   - Other: ₹{otherTotal}
@@ -189,7 +190,7 @@ Baaki sab set. Good night 🌙"
 
 6) Auto-split large food bills (personal Splitwise)
 
-Rule: when an expense is FOOD and amount >= ₹${config.business.splitThresholdAmount}:
+Rule: when an expense is FOOD and amount ≥ ₹${config.business.splitThresholdAmount}:
 
 - After logging it, proactively ask:
 
@@ -298,7 +299,8 @@ Timezone: Asia/Kolkata for Indian users.
 `;
 
 export const pinMeAgent = new Agent({
-  name: 'PinMe',
+  name: 'pinme-whatsapp-agent',
+  description: 'WhatsApp-first personal expense + Splitwise-style assistant.',
   instructions: PINME_SYSTEM_PROMPT,
   model: openai(config.openai.model),
   tools: {
@@ -306,56 +308,11 @@ export const pinMeAgent = new Agent({
     markReimbursement: markReimbursementTool,
     splitBill: splitBillTool,
     saveContacts: saveContactsTool,
+    getSummary: getSummaryTool,
     sendMessage: sendMessageTool,
     getUser: getUserTool,
     createUser: createUserTool,
     updateUserName: updateUserNameTool,
     completeOnboarding: completeOnboardingTool,
-    parseReceipt: parseReceiptTool,
-    getSummary: getSummaryTool,
   },
 });
-
-export interface AgentContext {
-  userPhone: string;
-  messageText?: string;
-  mediaType?: 'image' | 'document' | 'audio' | 'video';
-  mediaId?: string;
-  caption?: string;
-  timestamp: Date;
-}
-
-export async function processMessage(context: AgentContext): Promise<void> {
-  const { userPhone, messageText, mediaType, mediaId, caption, timestamp } = context;
-
-  // Build the user message for the agent
-  let userMessage = '';
-
-  if (mediaType === 'image') {
-    userMessage = `[User sent a receipt/bill image]
-Media ID: ${mediaId}
-Caption: ${caption || 'No caption provided'}
-
-Please parse this receipt and log the expense.`;
-  } else if (messageText) {
-    userMessage = messageText;
-  } else {
-    userMessage = '[Empty message received]';
-  }
-
-  // Build context message with user info
-  const contextMessage = `
-CONTEXT:
-- User Phone: ${userPhone}
-- Timestamp: ${timestamp.toISOString()}
-- Has Media: ${mediaType ? 'Yes (' + mediaType + ')' : 'No'}
-
-First, check if the user exists using getUser tool with phone number: ${userPhone}
-Based on the result, handle onboarding if needed or process their request.
-
-USER MESSAGE:
-${userMessage}`;
-
-  // Generate response from agent
-  await pinMeAgent.generate(contextMessage);
-}

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
-import { processMessage } from '../mastra/agent.js';
+import { processMessage } from '../mastra/index.js';
 import { MessageDirection, MessageChannel } from '../types/index.js';
 import type { WhatsAppWebhookPayload, WhatsAppMessage, NormalizedMessage } from '../types/index.js';
 import { normalizePhoneNumber } from '../logic/contacts.js';

@@ -10,6 +10,8 @@ import {
   formatDailySummaryMessage,
   saveDailySummary,
 } from '../logic/summaries.js';
+import { prisma } from '../db.js';
+import { normalizePhoneNumber } from '../logic/contacts.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -165,6 +167,89 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
       stats: {
         totalOnboardedUsers: users.length,
       },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Endpoint to delete a user and all their data
+adminRouter.delete('/user/:phoneNumber', async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber } = req.params;
+    const normalized = normalizePhoneNumber(phoneNumber);
+
+    const user = await prisma.user.findUnique({
+      where: { phoneNumber: normalized },
+      include: {
+        expenses: { select: { id: true } },
+        contacts: { select: { id: true } },
+        messageLogs: { select: { id: true } },
+        dailySummaries: { select: { id: true } },
+        billSplits: { select: { id: true } },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found', phoneNumber: normalized });
+      return;
+    }
+
+    // Delete user (cascades to all related data due to Prisma schema)
+    await prisma.user.delete({
+      where: { id: user.id },
+    });
+
+    res.json({
+      success: true,
+      deleted: {
+        userId: user.id,
+        phoneNumber: user.phoneNumber,
+        name: user.name,
+        expensesCount: user.expenses.length,
+        contactsCount: user.contacts.length,
+        messageLogsCount: user.messageLogs.length,
+        dailySummariesCount: user.dailySummaries.length,
+        billSplitsCount: user.billSplits.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Endpoint to list all users
+adminRouter.get('/users', async (_req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        phoneNumber: true,
+        name: true,
+        onboarded: true,
+        createdAt: true,
+        _count: {
+          select: {
+            expenses: true,
+            contacts: true,
+            messageLogs: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      count: users.length,
+      users,
     });
   } catch (error) {
     res.status(500).json({

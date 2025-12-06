@@ -1,6 +1,9 @@
 // src/mastra/index.ts
 import { Mastra } from '@mastra/core';
 import { pinMeAgent } from './agents/pinme-agent.js';
+import { findUserByPhone } from '../logic/users.js';
+import { getRandomMoneyGif } from '../services/giphy.js';
+import { whatsappClient } from '../whatsapp/client.js';
 
 export const mastra = new Mastra({
   agents: {
@@ -42,6 +45,10 @@ export interface AgentContext {
 export async function processMessage(context: AgentContext): Promise<void> {
   const { userPhone, messageText, mediaType, mediaId, caption, timestamp, messageId } = context;
 
+  // Check if this is a new user (for GIF after onboarding intro)
+  const existingUser = await findUserByPhone(userPhone);
+  const isNewUser = !existingUser || !existingUser.onboarded;
+
   // Build the user message for the agent
   let userMessage = '';
 
@@ -78,4 +85,19 @@ ${userMessage}`;
   // Get agent from mastra and generate response
   const agent = mastra.getAgent('pinMe');
   await agent.generate(contextMessage);
+
+  // If this was a new user's first message, send a welcome GIF after the agent's intro
+  if (isNewUser) {
+    try {
+      const gif = await getRandomMoneyGif();
+      if (gif?.mp4Url) {
+        // Small delay so GIF appears after intro messages
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await whatsappClient.sendVideo(userPhone, gif.mp4Url);
+      }
+    } catch (error) {
+      console.error('Failed to send welcome GIF:', error);
+      // Non-critical, continue without GIF
+    }
+  }
 }

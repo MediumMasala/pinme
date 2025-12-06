@@ -5,25 +5,30 @@ import { config } from '../config.js';
 // Initialize GIPHY client (uses API key if provided)
 const gf = config.giphy.apiKey ? new GiphyFetch(config.giphy.apiKey) : null;
 
-// Curated money/finance GIF search terms
+// Curated money/finance GIF search terms - STRICTLY money related
 const MONEY_SEARCH_TERMS = [
   'money rain',
+  'make it rain money',
   'cash money',
   'counting money',
-  'rich',
-  'payday',
-  'saving money',
-  'piggy bank',
-  'wallet',
+  'dollar bills',
+  'rupees money',
+  'throwing money',
+  'money flying',
+  'cash register money',
+  'payday money',
 ];
 
-// Fallback GIFs (direct GIPHY MP4 URLs) in case API is not configured
+// Fallback GIFs (direct GIPHY MP4 URLs) - ALL strictly money/cash related
 const FALLBACK_GIFS = [
   'https://media.giphy.com/media/LdOyjZ7io5Msw/giphy.mp4', // Money rain
-  'https://media.giphy.com/media/l0HFkA6omUyjVYqw8/giphy.mp4', // Make it rain
-  'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.mp4', // Money
-  'https://media.giphy.com/media/xTiTnqUxyWbsAXq7Ju/giphy.mp4', // Cash
+  'https://media.giphy.com/media/l0HFkA6omUyjVYqw8/giphy.mp4', // Make it rain dollars
+  'https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.mp4', // Dollar bills
+  'https://media.giphy.com/media/xTiTnqUxyWbsAXq7Ju/giphy.mp4', // Cash flying
   'https://media.giphy.com/media/3oKIPdGYRGEby6jQwE/giphy.mp4', // Money flying
+  'https://media.giphy.com/media/n94fyy6LYDQ2Q/giphy.mp4', // Counting money
+  'https://media.giphy.com/media/JpG2A9P3dPHXaTYrwu/giphy.mp4', // Money rain
+  'https://media.giphy.com/media/3o6gDWzmAzrpi5DQU8/giphy.mp4', // Cash money
 ];
 
 export interface GifResult {
@@ -68,14 +73,15 @@ export async function getRandomMoneyGif(): Promise<GifResult | null> {
 }
 
 /**
- * Get a specific category GIF
+ * Get a specific category GIF - ALL categories return money GIFs
  */
 export async function getGifByCategory(category: 'welcome' | 'expense' | 'summary' | 'split'): Promise<GifResult | null> {
+  // ALL categories use strictly money-related search terms
   const categoryTerms: Record<string, string[]> = {
-    welcome: ['welcome money', 'hello money', 'money wave'],
-    expense: ['spending money', 'cash register', 'shopping'],
-    summary: ['calculator', 'accounting', 'ledger'],
-    split: ['sharing', 'split bill', 'friends money'],
+    welcome: ['money rain', 'make it rain money', 'cash money'],
+    expense: ['spending money', 'money flying', 'cash register money'],
+    summary: ['counting money', 'money stack', 'cash pile'],
+    split: ['money split', 'cash divide', 'money sharing'],
   };
 
   if (gf) {

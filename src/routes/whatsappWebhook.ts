@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { processMessage } from '../mastra/index.js';
+import { whatsappClient } from '../whatsapp/client.js';
 import { MessageDirection, MessageChannel } from '../types/index.js';
 import type { WhatsAppWebhookPayload, WhatsAppMessage, NormalizedMessage } from '../types/index.js';
 import { normalizePhoneNumber } from '../logic/contacts.js';
@@ -66,6 +67,15 @@ async function processIncomingMessage(
   _contact?: { profile: { name: string }; wa_id: string }
 ): Promise<void> {
   const normalized = normalizeMessage(message);
+
+  // Mark message as read immediately (shows blue ticks)
+  if (normalized.messageId) {
+    try {
+      await whatsappClient.markAsRead(normalized.messageId);
+    } catch (error) {
+      console.error('Failed to mark message as read:', error);
+    }
+  }
 
   // Log the inbound message
   await logInboundMessage(normalized, message);

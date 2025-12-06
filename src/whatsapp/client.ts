@@ -77,6 +77,16 @@ class WhatsAppClient {
     return response.data;
   }
 
+  async markAsRead(messageId: string): Promise<void> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+    };
+
+    await this.client.post('/messages', payload);
+  }
+
   async getMediaUrl(mediaId: string): Promise<string> {
     const response = await axios.get<{ url: string }>(
       `https://graph.facebook.com/${config.whatsapp.apiVersion}/${mediaId}`,

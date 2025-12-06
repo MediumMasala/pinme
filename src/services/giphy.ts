@@ -7,17 +7,16 @@ const gf = config.giphy.apiKey ? new GiphyFetch(config.giphy.apiKey) : null;
 
 // Curated money/finance GIF search terms - STRICTLY money related
 const MONEY_SEARCH_TERMS = [
-  'money rain',
-  'make it rain money',
-  'cash money',
-  'counting money',
-  'dollar bills',
-  'rupees money',
-  'throwing money',
-  'money flying',
-  'cash register money',
-  'payday money',
+  'money cash dollars',
+  'raining money cash',
+  'counting cash bills',
+  'throwing cash money',
+  'rich money flex',
+  'billionaire money',
 ];
+
+// Keywords that MUST appear in GIF title to be considered valid
+const MONEY_KEYWORDS = ['money', 'cash', 'dollar', 'rich', 'bills', 'pay', 'coin', 'bank', 'wealth'];
 
 // Fallback GIFs (direct GIPHY MP4 URLs) - ALL strictly money/cash related
 const FALLBACK_GIFS = [
@@ -38,6 +37,14 @@ export interface GifResult {
 }
 
 /**
+ * Check if GIF title contains money-related keywords
+ */
+function isMoneyRelated(title: string): boolean {
+  const lowerTitle = title.toLowerCase();
+  return MONEY_KEYWORDS.some(keyword => lowerTitle.includes(keyword));
+}
+
+/**
  * Get a random money-related GIF
  */
 export async function getRandomMoneyGif(): Promise<GifResult | null> {
@@ -46,12 +53,25 @@ export async function getRandomMoneyGif(): Promise<GifResult | null> {
     try {
       const searchTerm = MONEY_SEARCH_TERMS[Math.floor(Math.random() * MONEY_SEARCH_TERMS.length)];
       const { data } = await gf.search(searchTerm, {
-        limit: 25,
+        limit: 50, // Get more results to filter
         rating: 'g', // Keep it family-friendly
       });
 
+      // Filter to only money-related GIFs
+      const moneyGifs = data.filter(gif => isMoneyRelated(gif.title));
+
+      if (moneyGifs.length > 0) {
+        const randomGif = moneyGifs[Math.floor(Math.random() * moneyGifs.length)];
+        return {
+          mp4Url: randomGif.images.original_mp4?.mp4 || randomGif.images.fixed_height.mp4 || '',
+          gifUrl: randomGif.images.original.url,
+          title: randomGif.title,
+        };
+      }
+
+      // If no filtered results, use first result (search term should be money-specific)
       if (data.length > 0) {
-        const randomGif = data[Math.floor(Math.random() * data.length)];
+        const randomGif = data[Math.floor(Math.random() * Math.min(data.length, 5))];
         return {
           mp4Url: randomGif.images.original_mp4?.mp4 || randomGif.images.fixed_height.mp4 || '',
           gifUrl: randomGif.images.original.url,
@@ -63,7 +83,7 @@ export async function getRandomMoneyGif(): Promise<GifResult | null> {
     }
   }
 
-  // Fallback to curated GIFs
+  // Fallback to curated GIFs (guaranteed money-related)
   const randomFallback = FALLBACK_GIFS[Math.floor(Math.random() * FALLBACK_GIFS.length)];
   return {
     mp4Url: randomFallback,
@@ -78,10 +98,10 @@ export async function getRandomMoneyGif(): Promise<GifResult | null> {
 export async function getGifByCategory(category: 'welcome' | 'expense' | 'summary' | 'split'): Promise<GifResult | null> {
   // ALL categories use strictly money-related search terms
   const categoryTerms: Record<string, string[]> = {
-    welcome: ['money rain', 'make it rain money', 'cash money'],
-    expense: ['spending money', 'money flying', 'cash register money'],
-    summary: ['counting money', 'money stack', 'cash pile'],
-    split: ['money split', 'cash divide', 'money sharing'],
+    welcome: ['money rain cash', 'rich money celebration', 'cash money success'],
+    expense: ['spending cash money', 'money wallet', 'paying cash'],
+    summary: ['counting money cash', 'money stack bills', 'rich cash pile'],
+    split: ['sharing money cash', 'money split bills', 'dividing cash'],
   };
 
   if (gf) {
@@ -89,12 +109,15 @@ export async function getGifByCategory(category: 'welcome' | 'expense' | 'summar
       const terms = categoryTerms[category] || MONEY_SEARCH_TERMS;
       const searchTerm = terms[Math.floor(Math.random() * terms.length)];
       const { data } = await gf.search(searchTerm, {
-        limit: 10,
+        limit: 50,
         rating: 'g',
       });
 
-      if (data.length > 0) {
-        const randomGif = data[Math.floor(Math.random() * data.length)];
+      // Filter to only money-related GIFs
+      const moneyGifs = data.filter(gif => isMoneyRelated(gif.title));
+
+      if (moneyGifs.length > 0) {
+        const randomGif = moneyGifs[Math.floor(Math.random() * moneyGifs.length)];
         return {
           mp4Url: randomGif.images.original_mp4?.mp4 || randomGif.images.fixed_height.mp4 || '',
           gifUrl: randomGif.images.original.url,
@@ -106,6 +129,11 @@ export async function getGifByCategory(category: 'welcome' | 'expense' | 'summar
     }
   }
 
-  // Fallback
-  return getRandomMoneyGif();
+  // Fallback to curated GIFs (guaranteed money-related)
+  const randomFallback = FALLBACK_GIFS[Math.floor(Math.random() * FALLBACK_GIFS.length)];
+  return {
+    mp4Url: randomFallback,
+    gifUrl: randomFallback.replace('.mp4', '.gif'),
+    title: 'Money GIF',
+  };
 }

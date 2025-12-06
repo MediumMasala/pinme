@@ -354,31 +354,34 @@ export const getSummaryTool = createTool({
 // ============================================
 // SEND MESSAGE TOOL
 // ============================================
+
+// Helper to add delay between messages
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const sendMessageTool = createTool({
   id: 'send-message',
-  description: 'Send a WhatsApp message (either free text or a pre-approved template) to a user.',
+  description: 'Send WhatsApp messages to a user. Use "messages" array for multiple short messages (chunking) instead of one long paragraph. Each message in the array will be sent separately with a small delay.',
   inputSchema: z.object({
     toPhone: z.string(),
-    text: z.string().optional().describe('Plain text message to send.'),
+    // Single message (backward compatible)
+    text: z.string().optional().describe('Single plain text message. Use "messages" instead for chunked messages.'),
+    // Multiple messages for chunking
+    messages: z.array(z.string()).optional().describe('Array of short messages to send in sequence. Preferred over "text" for natural WhatsApp-style conversation.'),
+    // Template support
     templateName: z.string().optional().describe('WhatsApp template name, if using template.'),
     templateVars: z.record(z.string()).optional().describe('Template variable map.'),
   }),
   outputSchema: z.object({
     success: z.boolean(),
-    messageId: z.string().optional(),
+    messageIds: z.array(z.string()).optional(),
+    messageCount: z.number().optional(),
     error: z.string().optional(),
   }),
   execute: async ({ context }) => {
     try {
-      if (!context.text && !context.templateName) {
-        return {
-          success: false,
-          error: 'Either text or templateName must be provided',
-        };
-      }
+      const messageIds: string[] = [];
 
-      let response;
-
+      // Handle template messages
       if (context.templateName) {
         const components = context.templateVars
           ? [{
@@ -390,19 +393,60 @@ export const sendMessageTool = createTool({
             }]
           : undefined;
 
-        response = await whatsappClient.sendTemplateMessage(
+        const response = await whatsappClient.sendTemplateMessage(
           context.toPhone,
           context.templateName,
           'en',
           components
         );
-      } else if (context.text) {
-        response = await whatsappClient.sendTextMessage(context.toPhone, context.text);
+        if (response?.messages?.[0]?.id) {
+          messageIds.push(response.messages[0].id);
+        }
+        return {
+          success: true,
+          messageIds,
+          messageCount: 1,
+        };
+      }
+
+      // Handle multiple messages (chunking)
+      if (context.messages && context.messages.length > 0) {
+        for (let i = 0; i < context.messages.length; i++) {
+          const msg = context.messages[i];
+          if (msg.trim()) {
+            const response = await whatsappClient.sendTextMessage(context.toPhone, msg);
+            if (response?.messages?.[0]?.id) {
+              messageIds.push(response.messages[0].id);
+            }
+            // Add small delay between messages (500ms) to make it feel natural
+            if (i < context.messages.length - 1) {
+              await delay(500);
+            }
+          }
+        }
+        return {
+          success: true,
+          messageIds,
+          messageCount: messageIds.length,
+        };
+      }
+
+      // Handle single text message (backward compatible)
+      if (context.text) {
+        const response = await whatsappClient.sendTextMessage(context.toPhone, context.text);
+        if (response?.messages?.[0]?.id) {
+          messageIds.push(response.messages[0].id);
+        }
+        return {
+          success: true,
+          messageIds,
+          messageCount: 1,
+        };
       }
 
       return {
-        success: true,
-        messageId: response?.messages?.[0]?.id,
+        success: false,
+        error: 'Either text, messages array, or templateName must be provided',
       };
     } catch (error) {
       return {

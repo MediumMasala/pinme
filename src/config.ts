@@ -57,7 +57,7 @@ export const config = {
   ledger: {
     jwtSecret: optionalEnv('LEDGER_JWT_SECRET', 'pinme-ledger-secret-change-in-prod'),
     jwtExpiryDays: parseInt(optionalEnv('LEDGER_JWT_EXPIRY_DAYS', '7'), 10),
-    baseUrl: optionalEnv('LEDGER_BASE_URL', 'https://pinme.onrender.com'),
+    baseUrl: optionalEnv('LEDGER_BASE_URL', 'https://pinme-61uo.onrender.com'),
   },
 } as const;
 

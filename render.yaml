@@ -11,7 +11,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install && npm run prisma:generate && npm run build
+    buildCommand: npm install && npm run prisma:generate && npm run build && cd ledger-frontend && npm install && npm run build && cd ..
     startCommand: npm run prisma:migrate:deploy && npm start
     healthCheckPath: /health
     envVars:

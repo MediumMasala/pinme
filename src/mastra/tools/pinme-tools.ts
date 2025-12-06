@@ -807,3 +807,159 @@ export const sendGifTool = createTool({
     }
   },
 });
+
+// ============================================
+// TRANSCRIBE VOICE NOTE TOOL (OpenAI Whisper)
+// ============================================
+export const transcribeVoiceTool = createTool({
+  id: 'transcribe-voice',
+  description: 'Transcribe a voice note/audio message from the user. Use when user sends an audio message.',
+  inputSchema: z.object({
+    mediaId: z.string().describe('WhatsApp media ID of the audio file'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    transcription: z.string().optional().describe('Transcribed text from the voice note'),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // 1. Get the media URL from WhatsApp
+      const mediaUrl = await whatsappClient.getMediaUrl(context.mediaId);
+
+      // 2. Download the audio file
+      const audioBuffer = await whatsappClient.downloadMedia(mediaUrl);
+
+      // 3. Create a File object for OpenAI
+      const audioFile = new File([audioBuffer], 'voice.ogg', { type: 'audio/ogg' });
+
+      // 4. Use OpenAI Whisper to transcribe
+      const transcription = await openaiClient.audio.transcriptions.create({
+        file: audioFile,
+        model: 'whisper-1',
+        language: 'en', // Can handle Hindi/Hinglish as well
+      });
+
+      return {
+        success: true,
+        transcription: transcription.text,
+      };
+    } catch (error) {
+      console.error('Voice transcription error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to transcribe voice note',
+      };
+    }
+  },
+});
+
+// ============================================
+// PARSE PDF DOCUMENT TOOL (OpenAI Vision)
+// ============================================
+export const parsePdfTool = createTool({
+  id: 'parse-pdf',
+  description: 'Parse a PDF document to extract expense-related information. Use when user sends a PDF (bills, invoices, statements).',
+  inputSchema: z.object({
+    mediaId: z.string().describe('WhatsApp media ID of the PDF file'),
+    caption: z.string().optional().describe('Any caption the user provided with the PDF'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    documentType: z.enum(['BILL', 'INVOICE', 'STATEMENT', 'RECEIPT', 'OTHER']).optional(),
+    amount: z.number().optional().describe('Total amount if found'),
+    currency: z.string().optional(),
+    merchant: z.string().optional().describe('Company/merchant name'),
+    category: z.enum(['FOOD', 'TRAVEL', 'GROCERIES', 'SHOPPING', 'BILLS', 'OTHER']).optional(),
+    description: z.string().optional(),
+    date: z.string().optional().describe('Date on the document if found'),
+    summary: z.string().optional().describe('Brief summary of the document'),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // 1. Get the media URL from WhatsApp
+      const mediaUrl = await whatsappClient.getMediaUrl(context.mediaId);
+
+      // 2. Download the PDF
+      const pdfBuffer = await whatsappClient.downloadMedia(mediaUrl);
+      const base64Pdf = pdfBuffer.toString('base64');
+
+      // 3. Use OpenAI to analyze the PDF (GPT-4o can handle PDFs directly)
+      const response = await openaiClient.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `You are a document analyzer. Analyze this PDF and extract expense-related information in JSON format:
+
+{
+  "documentType": "<one of: BILL, INVOICE, STATEMENT, RECEIPT, OTHER>",
+  "amount": <total amount as a number, or null if not found>,
+  "currency": "<currency code, default INR>",
+  "merchant": "<company/merchant name>",
+  "category": "<one of: FOOD, TRAVEL, GROCERIES, SHOPPING, BILLS, OTHER>",
+  "description": "<brief 2-5 word description>",
+  "date": "<date in YYYY-MM-DD format if found, otherwise null>",
+  "summary": "<1-2 sentence summary of what this document is>"
+}
+
+Rules:
+- Look for total amounts, grand totals, amounts payable
+- Identify the type of document (utility bill, restaurant bill, invoice, bank statement, etc.)
+- For utility bills (electricity, water, gas, internet), category is BILLS
+- For bank/credit card statements, summarize key transactions
+- Amount must be a number without currency symbols
+- If multiple amounts, use the final/total amount
+
+${context.caption ? `User's caption: "${context.caption}"` : ''}
+
+Return ONLY valid JSON, no markdown or explanation.`,
+              },
+              {
+                type: 'file',
+                file: {
+                  filename: 'document.pdf',
+                  file_data: `data:application/pdf;base64,${base64Pdf}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1500,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return {
+          success: false,
+          error: 'No response from AI',
+        };
+      }
+
+      // Parse the JSON response
+      const parsed = JSON.parse(content);
+
+      return {
+        success: true,
+        documentType: parsed.documentType,
+        amount: parsed.amount,
+        currency: parsed.currency || 'INR',
+        merchant: parsed.merchant,
+        category: parsed.category,
+        description: parsed.description,
+        date: parsed.date,
+        summary: parsed.summary,
+      };
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to parse PDF',
+      };
+    }
+  },
+});

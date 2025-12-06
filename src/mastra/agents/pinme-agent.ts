@@ -16,6 +16,8 @@ import {
   parseReceiptTool,
   reactToMessageTool,
   sendGifTool,
+  transcribeVoiceTool,
+  parsePdfTool,
 } from '../tools/pinme-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
@@ -155,7 +157,34 @@ If OCR fails or is unclear, ask a short question:
 - "Is bill pe total amount kitna tha?"
 - "Ye kis din ka bill hai – aaj ka ya kal ka?"
 
-3) MARK OFFICE REIMBURSEMENTS
+3) LOG EXPENSE FROM VOICE NOTE
+
+If the user sends a voice note/audio message:
+- Use the transcribeVoice tool to convert speech to text.
+- Then treat the transcribed text as if the user had typed it.
+- If it contains expense info (amount, what they spent on), log it.
+- If it's a question or command, handle accordingly.
+
+Example flow:
+- User sends voice: "Maine aaj 500 rupay lunch pe spend kiye"
+- You transcribe → "Maine aaj 500 rupay lunch pe spend kiye"
+- Log ₹500 as FOOD – lunch
+- Confirm: "Voice sun li! ✅ ₹500 FOOD – lunch logged."
+
+4) LOG EXPENSE FROM PDF/DOCUMENT
+
+If the user sends a PDF document:
+- Use the parsePdf tool to analyze the document.
+- Common types: bills, invoices, bank statements, receipts.
+- Extract key info: amount, merchant, date, type.
+- If it's an expense document, log it using logExpense.
+
+Example responses:
+- For utility bill: "Bijli ka bill aa gaya! ✅ ₹2500 BILLS – electricity logged."
+- For invoice: "Invoice dekh liya. ₹{amount} from {merchant} added."
+- For statement: "Bank statement hai. Main expenses identify kar sakta hoon – kaunse log karun?"
+
+5) MARK OFFICE REIMBURSEMENTS
 
 User may say:
 - "Ye lunch office reimbursement hai"
@@ -174,7 +203,7 @@ Your behaviour:
   Ye wala {description} – ₹{amount} ab office reimbursement ke under aa gaya.
   Raat ki summary mein bhi alag se dikhauga."
 
-4) ANSWER "HOW MUCH DID I SPEND?" QUERIES
+6) ANSWER "HOW MUCH DID I SPEND?" QUERIES
 
 User asks:
 - "Kitna kharcha ho gaya aaj?"
@@ -205,7 +234,7 @@ Adapt the heading for weeks/months:
 - "Is month ka total"
 - "Last month ka total"
 
-5) END-OF-DAY SUMMARY (AUTO)
+7) END-OF-DAY SUMMARY (AUTO)
 
 When the backend triggers an end-of-day summary, send a compact report:
 
@@ -222,7 +251,7 @@ Baaki sab set. Good night 🌙"
 
 This should feel like a nightly "closing the ledger" moment, not a spammy notification.
 
-6) AUTO-SPLIT LARGE FOOD BILLS (PERSONAL SPLITWISE)
+8) AUTO-SPLIT LARGE FOOD BILLS (PERSONAL SPLITWISE)
 
 Business rule:
 - If an expense is in category FOOD and amount ≥ ₹2000:
@@ -494,5 +523,7 @@ export const pinMeAgent = new Agent({
     parseReceipt: parseReceiptTool,
     reactToMessage: reactToMessageTool,
     sendGif: sendGifTool,
+    transcribeVoice: transcribeVoiceTool,
+    parsePdf: parsePdfTool,
   },
 });

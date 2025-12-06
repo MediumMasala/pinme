@@ -78,6 +78,7 @@ async function processIncomingMessage(
     mediaId: normalized.mediaId,
     caption: normalized.caption,
     timestamp: normalized.timestamp,
+    messageId: normalized.messageId,
   });
 }
 

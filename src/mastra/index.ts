@@ -23,6 +23,7 @@ export {
   updateUserNameTool,
   completeOnboardingTool,
   parseReceiptTool,
+  reactToMessageTool,
 } from './tools/pinme-tools.js';
 
 // Helper interface for agent context
@@ -33,11 +34,12 @@ export interface AgentContext {
   mediaId?: string;
   caption?: string;
   timestamp: Date;
+  messageId?: string; // WhatsApp message ID for reactions
 }
 
 // Process incoming WhatsApp message
 export async function processMessage(context: AgentContext): Promise<void> {
-  const { userPhone, messageText, mediaType, mediaId, caption, timestamp } = context;
+  const { userPhone, messageText, mediaType, mediaId, caption, timestamp, messageId } = context;
 
   // Build the user message for the agent
   let userMessage = '';
@@ -62,9 +64,12 @@ CONTEXT:
 - User Phone: ${userPhone}
 - Timestamp: ${timestamp.toISOString()}
 - Has Media: ${mediaType ? 'Yes (' + mediaType + ')' : 'No'}
+- Message ID: ${messageId || 'N/A'}
 
 First, check if the user exists using getUser tool with phone number: ${userPhone}
 Based on the result, handle onboarding if needed or process their request.
+
+IMPORTANT: If the user is logging an expense (sending amount info), use reactToMessage tool with messageId "${messageId}" and emoji "📝" to acknowledge the message BEFORE logging the expense.
 
 USER MESSAGE:
 ${userMessage}`;

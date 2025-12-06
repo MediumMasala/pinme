@@ -60,6 +60,23 @@ class WhatsAppClient {
     return response.data;
   }
 
+  async reactToMessage(toPhone: string, messageId: string, emoji: string): Promise<WhatsAppSendMessageResponse> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'reaction',
+      reaction: {
+        message_id: messageId,
+        emoji: emoji,
+      },
+    };
+
+    const response = await this.client.post<WhatsAppSendMessageResponse>('/messages', payload);
+
+    return response.data;
+  }
+
   async getMediaUrl(mediaId: string): Promise<string> {
     const response = await axios.get<{ url: string }>(
       `https://graph.facebook.com/${config.whatsapp.apiVersion}/${mediaId}`,

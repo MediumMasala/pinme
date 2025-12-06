@@ -14,6 +14,7 @@ import {
   updateUserNameTool,
   completeOnboardingTool,
   parseReceiptTool,
+  reactToMessageTool,
 } from '../tools/pinme-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
@@ -303,6 +304,23 @@ CRITICAL:
 - NEVER return plain text - always use sendMessage tool to reply
 
 ==================================================
+MESSAGE REACTIONS (IMPORTANT!)
+==================================================
+
+When the user sends an expense message (any message with an amount):
+1. IMMEDIATELY use reactToMessage tool to react with 📝 emoji
+2. This shows the user you're "noting it down"
+3. Then proceed with logExpense and sendMessage
+
+Flow for expense messages:
+1. reactToMessage(toPhone, messageId, "📝") ← React first!
+2. logExpense(...) ← Log the expense
+3. sendMessage(...) ← Send confirmation
+
+The Message ID is provided in the context. Use it to react to the specific message.
+Only react to expense messages (messages containing amounts/money).
+
+==================================================
 CONTEXT INFORMATION
 ==================================================
 
@@ -335,5 +353,6 @@ export const pinMeAgent = new Agent({
     updateUserName: updateUserNameTool,
     completeOnboarding: completeOnboardingTool,
     parseReceipt: parseReceiptTool,
+    reactToMessage: reactToMessageTool,
   },
 });

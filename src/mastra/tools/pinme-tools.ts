@@ -591,6 +591,42 @@ export const completeOnboardingTool = createTool({
 });
 
 // ============================================
+// REACT TO MESSAGE TOOL
+// ============================================
+export const reactToMessageTool = createTool({
+  id: 'react-to-message',
+  description: 'React to a WhatsApp message with an emoji. Use this to acknowledge expense messages with 📝 emoji.',
+  inputSchema: z.object({
+    toPhone: z.string().describe('Phone number of the user'),
+    messageId: z.string().describe('WhatsApp message ID to react to'),
+    emoji: z.string().default('📝').describe('Emoji to react with. Default is 📝 (memo/noting down)'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    messageId: z.string().optional(),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      const response = await whatsappClient.reactToMessage(
+        context.toPhone,
+        context.messageId,
+        context.emoji
+      );
+      return {
+        success: true,
+        messageId: response?.messages?.[0]?.id,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to react to message',
+      };
+    }
+  },
+});
+
+// ============================================
 // PARSE RECEIPT TOOL (OCR via OpenAI Vision)
 // ============================================
 export const parseReceiptTool = createTool({

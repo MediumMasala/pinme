@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchDashboardData } from './api';
+import { fetchDashboardData, deleteUser } from './api';
 import type { DashboardData } from './types';
 import {
   Layout,
@@ -48,6 +48,12 @@ function App() {
   }, [loadData]);
 
   const handleRefresh = () => {
+    loadData(true);
+  };
+
+  const handleDeleteUser = async (phoneNumber: string) => {
+    await deleteUser(phoneNumber);
+    // Refresh the dashboard data after deletion
     loadData(true);
   };
 
@@ -138,7 +144,7 @@ function App() {
 
       {/* Recent Users */}
       <SectionCard title="Recent Users" className="mb-6">
-        <RecentUsersTable users={recentUsers} />
+        <RecentUsersTable users={recentUsers} onDeleteUser={handleDeleteUser} />
       </SectionCard>
 
       {/* Recent Expenses */}

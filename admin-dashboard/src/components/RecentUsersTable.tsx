@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import type { DashboardRecentUser } from '../types';
 
 interface RecentUsersTableProps {
   users: DashboardRecentUser[];
+  onDeleteUser?: (phoneNumber: string) => Promise<void>;
 }
 
 function formatDateTime(isoString: string): string {
@@ -16,7 +18,21 @@ function formatDateTime(isoString: string): string {
   }
 }
 
-export function RecentUsersTable({ users }: RecentUsersTableProps) {
+export function RecentUsersTable({ users, onDeleteUser }: RecentUsersTableProps) {
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  const handleDelete = async (user: DashboardRecentUser) => {
+    if (!onDeleteUser) return;
+
+    setDeletingId(user.id);
+    try {
+      await onDeleteUser(user.phoneNumber);
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
   if (users.length === 0) {
     return (
       <div className="text-center py-8 text-slate-400">
@@ -37,6 +53,7 @@ export function RecentUsersTable({ users }: RecentUsersTableProps) {
             <th className="pb-2 font-medium text-center">Expenses</th>
             <th className="pb-2 font-medium text-center">Messages</th>
             <th className="pb-2 font-medium text-center">Contacts</th>
+            {onDeleteUser && <th className="pb-2 font-medium text-center">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
@@ -71,6 +88,35 @@ export function RecentUsersTable({ users }: RecentUsersTableProps) {
               <td className="py-3 text-center text-slate-600">
                 {user._count.contacts}
               </td>
+              {onDeleteUser && (
+                <td className="py-3 text-center">
+                  {confirmDeleteId === user.id ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleDelete(user)}
+                        disabled={deletingId === user.id}
+                        className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:opacity-50"
+                      >
+                        {deletingId === user.id ? 'Deleting...' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deletingId === user.id}
+                        className="px-2 py-1 bg-slate-200 text-slate-600 text-xs rounded hover:bg-slate-300 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteId(user.id)}
+                      className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded hover:bg-red-200 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

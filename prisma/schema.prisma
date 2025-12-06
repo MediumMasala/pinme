@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  phoneNumber String   @unique
+  name        String?
+  onboarded   Boolean  @default(false)
+  timezone    String   @default("Asia/Kolkata")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contacts       Contact[]
+  expenses       Expense[]
+  messageLogs    MessageLog[]
+  billSplits     BillSplit[]    @relation("PayerSplits")
+  dailySummaries DailySummary[]
+}
+
+model Contact {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String?
+  phoneNumber      String
+  relationshipType String   // "FRIEND" | "COLLEAGUE" | "OTHER"
+  createdAt        DateTime @default(now())
+
+  splitParticipants BillSplitParticipant[]
+
+  @@unique([userId, phoneNumber])
+}
+
+model Expense {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Decimal  @db.Decimal(12, 2)
+  currency          String   @default("INR")
+  category          String   // "FOOD" | "TRAVEL" | "GROCERIES" | "SHOPPING" | "BILLS" | "OTHER"
+  description       String
+  expenseDatetime   DateTime
+  source            String   // "TEXT" | "RECEIPT_IMAGE" | "MANUAL"
+  rawMessageText    String?
+  receiptMetadata   Json?
+  isReimbursement   Boolean  @default(false)
+  reimbursementNote String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  billSplit BillSplit?
+
+  @@index([userId, expenseDatetime])
+  @@index([userId, category])
+  @@index([userId, isReimbursement])
+}
+
+model BillSplit {
+  id              Int      @id @default(autoincrement())
+  expenseId       Int      @unique
+  expense         Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  payerUserId     Int
+  payer           User     @relation("PayerSplits", fields: [payerUserId], references: [id], onDelete: Cascade)
+  totalAmount     Decimal  @db.Decimal(12, 2)
+  amountPerPerson Decimal  @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  participants BillSplitParticipant[]
+}
+
+model BillSplitParticipant {
+  id          Int       @id @default(autoincrement())
+  billSplitId Int
+  billSplit   BillSplit @relation(fields: [billSplitId], references: [id], onDelete: Cascade)
+  contactId   Int
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  amount      Decimal   @db.Decimal(12, 2)
+  status      String    @default("PENDING") // "PENDING" | "ACCEPTED" | "DECLINED"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([billSplitId, contactId])
+}
+
+model DailySummary {
+  id                   Int      @id @default(autoincrement())
+  userId               Int
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                 DateTime @db.Date
+  totalAmount          Decimal  @db.Decimal(12, 2)
+  perCategoryBreakdown Json
+  reimbursementTotal   Decimal  @db.Decimal(12, 2)
+  computedAt           DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model MessageLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  direction String   // "INBOUND" | "OUTBOUND"
+  channel   String   @default("WHATSAPP")
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

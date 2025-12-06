@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pinme-postgres
+    environment:
+      POSTGRES_USER: pinme
+      POSTGRES_PASSWORD: pinme123
+      POSTGRES_DB: pinme
+    ports:
+      - "5432:5432"
+    volumes:
+      - pinme_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pinme_postgres_data:

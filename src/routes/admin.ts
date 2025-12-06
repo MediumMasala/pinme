@@ -258,3 +258,286 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
     });
   }
 });
+
+// Comprehensive dashboard endpoint
+adminRouter.get('/dashboard', async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const today = dayjs().startOf('day').toDate();
+    const last24h = dayjs().subtract(24, 'hours').toDate();
+    const last7d = dayjs().subtract(7, 'days').toDate();
+    const last30d = dayjs().subtract(30, 'days').toDate();
+
+    // User stats
+    const totalUsers = await prisma.user.count();
+    const onboardedUsers = await prisma.user.count({ where: { onboarded: true } });
+    const usersLast24h = await prisma.user.count({ where: { createdAt: { gte: last24h } } });
+    const usersLast7d = await prisma.user.count({ where: { createdAt: { gte: last7d } } });
+
+    // Active users (users who sent messages)
+    const activeUsersLast24h = await prisma.messageLog.groupBy({
+      by: ['userId'],
+      where: {
+        createdAt: { gte: last24h },
+        direction: 'INBOUND',
+        userId: { not: null },
+      },
+    });
+
+    const activeUsersLast7d = await prisma.messageLog.groupBy({
+      by: ['userId'],
+      where: {
+        createdAt: { gte: last7d },
+        direction: 'INBOUND',
+        userId: { not: null },
+      },
+    });
+
+    // Message stats
+    const totalMessages = await prisma.messageLog.count();
+    const inboundMessages = await prisma.messageLog.count({ where: { direction: 'INBOUND' } });
+    const outboundMessages = await prisma.messageLog.count({ where: { direction: 'OUTBOUND' } });
+    const messagesToday = await prisma.messageLog.count({ where: { createdAt: { gte: today } } });
+    const messagesLast24h = await prisma.messageLog.count({ where: { createdAt: { gte: last24h } } });
+
+    // Expense stats
+    const totalExpenses = await prisma.expense.count();
+    const expensesToday = await prisma.expense.count({ where: { createdAt: { gte: today } } });
+    const expensesLast7d = await prisma.expense.count({ where: { createdAt: { gte: last7d } } });
+    const expensesLast30d = await prisma.expense.count({ where: { createdAt: { gte: last30d } } });
+
+    const totalExpenseAmount = await prisma.expense.aggregate({
+      _sum: { amount: true },
+    });
+
+    const reimbursableExpenses = await prisma.expense.count({ where: { isReimbursement: true } });
+
+    // Expenses by category
+    const expensesByCategory = await prisma.expense.groupBy({
+      by: ['category'],
+      _count: { id: true },
+      _sum: { amount: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+
+    // Recent users with details
+    const recentUsers = await prisma.user.findMany({
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        phoneNumber: true,
+        name: true,
+        onboarded: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            expenses: true,
+            messageLogs: true,
+            contacts: true,
+          },
+        },
+      },
+    });
+
+    // Recent conversations (last 50 inbound messages)
+    const recentConversations = await prisma.messageLog.findMany({
+      take: 50,
+      where: { direction: 'INBOUND' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+        payload: true,
+        user: {
+          select: {
+            phoneNumber: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // Format conversations to show message text
+    const formattedConversations = recentConversations.map((msg) => {
+      const payload = msg.payload as Record<string, unknown>;
+      const normalized = payload?.normalized as Record<string, unknown> | undefined;
+      return {
+        id: msg.id,
+        userId: msg.userId,
+        phoneNumber: msg.user?.phoneNumber ?? 'Unknown',
+        userName: msg.user?.name ?? 'Unknown',
+        messageText: normalized?.messageText ?? '[Media/Unknown]',
+        timestamp: msg.createdAt,
+      };
+    });
+
+    // Recent expenses
+    const recentExpenses = await prisma.expense.findMany({
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        category: true,
+        description: true,
+        isReimbursement: true,
+        createdAt: true,
+        user: {
+          select: {
+            phoneNumber: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      generatedAt: now.toISOString(),
+      overview: {
+        users: {
+          total: totalUsers,
+          onboarded: onboardedUsers,
+          newLast24h: usersLast24h,
+          newLast7d: usersLast7d,
+          activeLast24h: activeUsersLast24h.length,
+          activeLast7d: activeUsersLast7d.length,
+        },
+        messages: {
+          total: totalMessages,
+          inbound: inboundMessages,
+          outbound: outboundMessages,
+          today: messagesToday,
+          last24h: messagesLast24h,
+        },
+        expenses: {
+          total: totalExpenses,
+          today: expensesToday,
+          last7d: expensesLast7d,
+          last30d: expensesLast30d,
+          totalAmount: totalExpenseAmount._sum.amount?.toString() ?? '0',
+          reimbursable: reimbursableExpenses,
+        },
+      },
+      expensesByCategory: expensesByCategory.map((c) => ({
+        category: c.category,
+        count: c._count.id,
+        totalAmount: c._sum.amount?.toString() ?? '0',
+      })),
+      recentUsers,
+      recentConversations: formattedConversations,
+      recentExpenses: recentExpenses.map((e) => ({
+        id: e.id,
+        amount: e.amount.toString(),
+        currency: e.currency,
+        category: e.category,
+        description: e.description,
+        isReimbursement: e.isReimbursement,
+        userName: e.user.name ?? 'Unknown',
+        phoneNumber: e.user.phoneNumber,
+        createdAt: e.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Error generating dashboard:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get detailed user info with all their data
+adminRouter.get('/user/:phoneNumber', async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber } = req.params;
+    const normalized = normalizePhoneNumber(phoneNumber);
+
+    const user = await prisma.user.findUnique({
+      where: { phoneNumber: normalized },
+      include: {
+        expenses: {
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        },
+        contacts: true,
+        messageLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        },
+        dailySummaries: {
+          orderBy: { date: 'desc' },
+          take: 30,
+        },
+        billSplits: {
+          include: {
+            participants: {
+              include: { contact: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found', phoneNumber: normalized });
+      return;
+    }
+
+    // Format message logs to show readable text
+    const formattedMessages = user.messageLogs.map((msg) => {
+      const payload = msg.payload as Record<string, unknown>;
+      const normalized = payload?.normalized as Record<string, unknown> | undefined;
+      return {
+        id: msg.id,
+        direction: msg.direction,
+        messageText: msg.direction === 'INBOUND'
+          ? (normalized?.messageText ?? '[Media/Unknown]')
+          : ((payload as Record<string, unknown>)?.text as Record<string, unknown>)?.body ?? '[Template/Unknown]',
+        timestamp: msg.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        name: user.name,
+        onboarded: user.onboarded,
+        timezone: user.timezone,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      stats: {
+        totalExpenses: user.expenses.length,
+        totalContacts: user.contacts.length,
+        totalMessages: user.messageLogs.length,
+        totalSummaries: user.dailySummaries.length,
+        totalSplits: user.billSplits.length,
+      },
+      expenses: user.expenses.map((e) => ({
+        id: e.id,
+        amount: e.amount.toString(),
+        currency: e.currency,
+        category: e.category,
+        description: e.description,
+        isReimbursement: e.isReimbursement,
+        createdAt: e.createdAt,
+      })),
+      contacts: user.contacts,
+      messages: formattedMessages,
+      billSplits: user.billSplits,
+    });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});

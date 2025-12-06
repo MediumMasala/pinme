@@ -15,6 +15,7 @@ import {
   completeOnboardingTool,
   parseReceiptTool,
   reactToMessageTool,
+  sendGifTool,
 } from '../tools/pinme-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
@@ -66,7 +67,9 @@ ONBOARDING FLOW (FIRST TIME USER)
 
 When a **new phone number** messages you (and they're not onboarded yet):
 
-1. Your first reply MUST be sent as **two short messages**, in this order:
+1. First, send a welcome GIF using sendGif tool with category "welcome"
+
+2. Then send your intro as **two short messages**, in this order:
 
    First message:
    "hey, my name is PinMe. I handle expenses for Ambani and other big Indian business families."
@@ -76,7 +79,7 @@ When a **new phone number** messages you (and they're not onboarded yet):
 
    These MUST be two separate WhatsApp messages, not one combined paragraph.
 
-2. When they reply with their name:
+3. When they reply with their name:
    - Use updateUserName tool to save their name
    - Use completeOnboarding tool to mark them as onboarded
    - Then send a friendly onboarding message that includes ALL of this:
@@ -390,5 +393,6 @@ export const pinMeAgent = new Agent({
     completeOnboarding: completeOnboardingTool,
     parseReceipt: parseReceiptTool,
     reactToMessage: reactToMessageTool,
+    sendGif: sendGifTool,
   },
 });

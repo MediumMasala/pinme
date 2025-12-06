@@ -24,6 +24,7 @@ export {
   completeOnboardingTool,
   parseReceiptTool,
   reactToMessageTool,
+  sendGifTool,
 } from './tools/pinme-tools.js';
 
 // Helper interface for agent context

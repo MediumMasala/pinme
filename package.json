@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.0",
+    "@giphy/js-fetch-api": "^5.7.0",
     "@mastra/core": "^0.10.0",
     "@prisma/client": "^6.1.0",
     "axios": "^1.7.9",

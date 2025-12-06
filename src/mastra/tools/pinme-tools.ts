@@ -9,6 +9,7 @@ import { createExpense, markExpensesAsReimbursement } from '../../logic/expenses
 import { createBillSplit } from '../../logic/splits.js';
 import { upsertContacts } from '../../logic/contacts.js';
 import { findUserByPhone, getOrCreateUser, updateUserName, markUserOnboarded } from '../../logic/users.js';
+import { getRandomMoneyGif, getGifByCategory } from '../../services/giphy.js';
 import { ExpenseCategory, ExpenseSource } from '../../types/index.js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
@@ -732,6 +733,52 @@ Return ONLY valid JSON, no markdown or explanation.`,
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to parse receipt',
+      };
+    }
+  },
+});
+
+// ============================================
+// SEND GIF TOOL
+// ============================================
+export const sendGifTool = createTool({
+  id: 'send-gif',
+  description: 'Send a fun money-related GIF to the user. Use during onboarding or to celebrate milestones. Categories: welcome (for new users), expense (when logging), summary (for reports), split (for bill splits).',
+  inputSchema: z.object({
+    toPhone: z.string().describe('Phone number to send GIF to'),
+    category: z.enum(['welcome', 'expense', 'summary', 'split']).optional().describe('Type of GIF to send. Default is random money GIF.'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    messageId: z.string().optional(),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Get a GIF based on category or random
+      const gif = context.category
+        ? await getGifByCategory(context.category)
+        : await getRandomMoneyGif();
+
+      if (!gif || !gif.mp4Url) {
+        return {
+          success: false,
+          error: 'Could not fetch GIF',
+        };
+      }
+
+      // Send the GIF as a video (WhatsApp plays MP4s as GIFs)
+      const response = await whatsappClient.sendVideo(context.toPhone, gif.mp4Url);
+
+      return {
+        success: true,
+        messageId: response?.messages?.[0]?.id,
+      };
+    } catch (error) {
+      console.error('Send GIF error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send GIF',
       };
     }
   },

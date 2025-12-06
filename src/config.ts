@@ -47,6 +47,11 @@ export const config = {
   admin: {
     apiKey: optionalEnv('ADMIN_API_KEY', ''),
   },
+
+  // GIPHY (for fun GIFs)
+  giphy: {
+    apiKey: optionalEnv('GIPHY_API_KEY', ''),
+  },
 } as const;
 
 export type Config = typeof config;

@@ -87,6 +87,56 @@ class WhatsAppClient {
     await this.client.post('/messages', payload);
   }
 
+  async sendVideo(toPhone: string, videoUrl: string, caption?: string): Promise<WhatsAppSendMessageResponse> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'video',
+      video: {
+        link: videoUrl,
+        ...(caption && { caption }),
+      },
+    };
+
+    const response = await this.client.post<WhatsAppSendMessageResponse>('/messages', payload);
+    await this.logOutboundMessage(toPhone, payload);
+    return response.data;
+  }
+
+  async sendImage(toPhone: string, imageUrl: string, caption?: string): Promise<WhatsAppSendMessageResponse> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'image',
+      image: {
+        link: imageUrl,
+        ...(caption && { caption }),
+      },
+    };
+
+    const response = await this.client.post<WhatsAppSendMessageResponse>('/messages', payload);
+    await this.logOutboundMessage(toPhone, payload);
+    return response.data;
+  }
+
+  async sendSticker(toPhone: string, stickerUrl: string): Promise<WhatsAppSendMessageResponse> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: toPhone,
+      type: 'sticker',
+      sticker: {
+        link: stickerUrl,
+      },
+    };
+
+    const response = await this.client.post<WhatsAppSendMessageResponse>('/messages', payload);
+    await this.logOutboundMessage(toPhone, payload);
+    return response.data;
+  }
+
   async getMediaUrl(mediaId: string): Promise<string> {
     const response = await axios.get<{ url: string }>(
       `https://graph.facebook.com/${config.whatsapp.apiVersion}/${mediaId}`,

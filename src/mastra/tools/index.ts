@@ -5,3 +5,4 @@ export { saveContactsTool } from './saveContactsTool.js';
 export { sendMessageTool } from './sendMessageTool.js';
 export { getUserTool, createUserTool, updateUserNameTool, completeOnboardingTool } from './userTool.js';
 export { parseReceiptTool } from './parseReceiptTool.js';
+export { getSummaryTool } from './getSummaryTool.js';

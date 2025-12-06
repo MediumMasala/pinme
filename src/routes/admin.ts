@@ -452,10 +452,8 @@ adminRouter.get('/dashboard', async (_req: Request, res: Response) => {
 });
 
 // Alias for dashboard - /admin/overview
-adminRouter.get('/overview', async (req: Request, res: Response) => {
-  // Forward to dashboard handler
-  req.url = '/dashboard';
-  adminRouter.handle(req, res, () => {});
+adminRouter.get('/overview', (_req: Request, res: Response) => {
+  res.redirect('/admin/dashboard');
 });
 
 // Get detailed user info with all their data

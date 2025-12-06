@@ -1,6 +1,7 @@
 {
   "name": "pinme",
   "version": "1.0.0",
+  "type": "module",
   "description": "WhatsApp-first personal expense tracker for Indian users",
   "main": "dist/server.js",
   "scripts": {

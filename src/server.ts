@@ -1,8 +1,13 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { prisma, disconnectDb } from './db.js';
 import { whatsappWebhookRouter } from './routes/whatsappWebhook.js';
 import { adminRouter } from './routes/admin.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -28,6 +33,20 @@ app.get('/health', (_req: Request, res: Response) => {
 // Routes
 app.use('/whatsapp/webhook', whatsappWebhookRouter);
 app.use('/admin', adminRouter);
+
+// Serve admin dashboard static files
+const adminDashboardPath = path.join(__dirname, '..', 'public', 'admin');
+app.use('/admin-ui', express.static(adminDashboardPath));
+
+// SPA fallback for admin dashboard
+app.get('/admin-ui/*', (_req: Request, res: Response) => {
+  res.sendFile(path.join(adminDashboardPath, 'index.html'));
+});
+
+// Redirect root to admin dashboard
+app.get('/', (_req: Request, res: Response) => {
+  res.redirect('/admin-ui');
+});
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
@@ -78,9 +97,10 @@ async function main(): Promise<void> {
 ║                                                           ║
 ║   Endpoints:                                              ║
 ║   • GET  /health              - Health check              ║
+║   • GET  /admin-ui            - Admin Dashboard           ║
+║   • GET  /admin/dashboard     - Dashboard API             ║
 ║   • GET  /whatsapp/webhook    - Webhook verification      ║
 ║   • POST /whatsapp/webhook    - Receive messages          ║
-║   • POST /admin/run-daily-summaries - Trigger summaries   ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);

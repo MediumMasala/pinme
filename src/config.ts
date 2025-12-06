@@ -33,7 +33,7 @@ export const config = {
   // OpenAI (for Mastra)
   openai: {
     apiKey: requireEnv('OPENAI_API_KEY'),
-    model: optionalEnv('OPENAI_MODEL', 'gpt-4o-mini'),
+    model: optionalEnv('OPENAI_MODEL', 'gpt-4o'),
   },
 
   // Business rules

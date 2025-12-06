@@ -1,6 +1,6 @@
 // src/mastra/agents/pinme-agent.ts
 import { Agent } from '@mastra/core';
-import { openai } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
 import { config } from '../../config.js';
 import {
   logExpenseTool,
@@ -479,7 +479,7 @@ export const pinMeAgent = new Agent({
   name: 'pinme-whatsapp-agent',
   description: 'WhatsApp-first personal expense + Splitwise-style assistant.',
   instructions: PINME_SYSTEM_PROMPT,
-  model: openai(config.openai.model),
+  model: anthropic(config.anthropic.model),
   tools: {
     logExpense: logExpenseTool,
     markReimbursement: markReimbursementTool,

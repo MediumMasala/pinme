@@ -36,6 +36,12 @@ export const config = {
     model: optionalEnv('OPENAI_MODEL', 'gpt-4o'),
   },
 
+  // Anthropic (for Mastra agents)
+  anthropic: {
+    apiKey: optionalEnv('ANTHROPIC_API_KEY', ''),
+    model: optionalEnv('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514'),
+  },
+
   // Business rules
   business: {
     splitThresholdAmount: parseInt(optionalEnv('SPLIT_THRESHOLD_AMOUNT', '2000'), 10),

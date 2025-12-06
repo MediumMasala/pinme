@@ -1,7 +1,7 @@
 // src/mastra/agents/chat-agent.ts
 // Dedicated agent for handling small talk, career chat, and off-topic messages
 import { Agent } from '@mastra/core';
-import { openai } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
 import { config } from '../../config.js';
 import { sendMessageTool } from '../tools/pinme-tools.js';
 
@@ -96,7 +96,7 @@ export const chatAgent = new Agent({
   name: 'pinme-chat-agent',
   description: 'Handles small talk, career chat, and off-topic messages for PinMe.',
   instructions: CHAT_SYSTEM_PROMPT,
-  model: openai(config.openai.model),
+  model: anthropic(config.anthropic.model),
   tools: {
     sendMessage: sendMessageTool,
   },

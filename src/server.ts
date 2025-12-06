@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { prisma, disconnectDb } from './db.js';
 import { whatsappWebhookRouter } from './routes/whatsappWebhook.js';
 import { adminRouter } from './routes/admin.js';
+import { initializeScheduler } from './scheduler/dailyMessages.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,8 +103,15 @@ async function main(): Promise<void> {
 ║   • GET  /whatsapp/webhook    - Webhook verification      ║
 ║   • POST /whatsapp/webhook    - Receive messages          ║
 ║                                                           ║
+║   Scheduled Jobs:                                         ║
+║   • 11:30 AM IST - Morning reminder                       ║
+║   • 11:30 PM IST - Daily expense summary                  ║
+║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
+
+    // Initialize scheduled jobs
+    initializeScheduler();
   });
 }
 

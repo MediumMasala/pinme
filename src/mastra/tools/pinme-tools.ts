@@ -1,7 +1,9 @@
 // src/mastra/tools/pinme-tools.ts
 import { createTool } from '@mastra/core';
 import { z } from 'zod';
+import OpenAI from 'openai';
 import { prisma } from '../../db.js';
+import { config } from '../../config.js';
 import { whatsappClient } from '../../whatsapp/client.js';
 import { createExpense, markExpensesAsReimbursement } from '../../logic/expenses.js';
 import { createBillSplit } from '../../logic/splits.js';
@@ -11,6 +13,9 @@ import { ExpenseCategory, ExpenseSource } from '../../types/index.js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
+
+// OpenAI client for vision
+const openaiClient = new OpenAI({ apiKey: config.openai.apiKey });
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -580,6 +585,117 @@ export const completeOnboardingTool = createTool({
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+});
+
+// ============================================
+// PARSE RECEIPT TOOL (OCR via OpenAI Vision)
+// ============================================
+export const parseReceiptTool = createTool({
+  id: 'parse-receipt',
+  description: 'Parse a receipt/bill image to extract expense details. Use when user sends an image of a bill or receipt.',
+  inputSchema: z.object({
+    mediaId: z.string().describe('WhatsApp media ID of the receipt image'),
+    caption: z.string().optional().describe('Any caption the user provided with the image'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    amount: z.number().optional().describe('Total amount on the receipt'),
+    currency: z.string().optional(),
+    merchant: z.string().optional().describe('Name of the merchant/restaurant/store'),
+    category: z.enum(['FOOD', 'TRAVEL', 'GROCERIES', 'SHOPPING', 'BILLS', 'OTHER']).optional(),
+    description: z.string().optional(),
+    date: z.string().optional().describe('Date on the receipt if visible'),
+    items: z.array(z.object({
+      name: z.string(),
+      amount: z.number(),
+    })).optional().describe('Individual line items if visible'),
+    rawText: z.string().optional().describe('Raw extracted text from receipt'),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // 1. Get the media URL from WhatsApp
+      const mediaUrl = await whatsappClient.getMediaUrl(context.mediaId);
+
+      // 2. Download the image
+      const imageBuffer = await whatsappClient.downloadMedia(mediaUrl);
+      const base64Image = imageBuffer.toString('base64');
+
+      // 3. Use OpenAI Vision to parse the receipt
+      const response = await openaiClient.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `You are a receipt/bill parser. Analyze this image of a receipt or bill and extract the following information in JSON format:
+
+{
+  "amount": <total amount as a number, no currency symbol>,
+  "currency": "<currency code, default INR>",
+  "merchant": "<name of merchant/restaurant/store>",
+  "category": "<one of: FOOD, TRAVEL, GROCERIES, SHOPPING, BILLS, OTHER>",
+  "description": "<brief 2-4 word description>",
+  "date": "<date in YYYY-MM-DD format if visible, otherwise null>",
+  "items": [{"name": "<item name>", "amount": <item price>}] or null if not clear,
+  "rawText": "<key text from the receipt>"
+}
+
+Rules:
+- For Indian receipts, look for "Total", "Grand Total", "Net Amount", "Amount Payable"
+- Category should be FOOD for restaurants/cafes/food delivery, GROCERIES for supermarkets, TRAVEL for cabs/fuel, SHOPPING for retail, BILLS for utilities
+- If it's a Swiggy/Zomato/food delivery receipt, category is FOOD
+- Amount must be a number without currency symbols
+- Be accurate with the total amount - this is the most important field
+
+${context.caption ? `User's caption: "${context.caption}"` : ''}
+
+Return ONLY valid JSON, no markdown or explanation.`,
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return {
+          success: false,
+          error: 'No response from vision API',
+        };
+      }
+
+      // Parse the JSON response
+      const parsed = JSON.parse(content);
+
+      return {
+        success: true,
+        amount: parsed.amount,
+        currency: parsed.currency || 'INR',
+        merchant: parsed.merchant,
+        category: parsed.category,
+        description: parsed.description,
+        date: parsed.date,
+        items: parsed.items,
+        rawText: parsed.rawText,
+      };
+    } catch (error) {
+      console.error('Receipt parsing error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to parse receipt',
       };
     }
   },

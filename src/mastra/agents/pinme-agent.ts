@@ -13,6 +13,7 @@ import {
   createUserTool,
   updateUserNameTool,
   completeOnboardingTool,
+  parseReceiptTool,
 } from '../tools/pinme-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
@@ -333,5 +334,6 @@ export const pinMeAgent = new Agent({
     createUser: createUserTool,
     updateUserName: updateUserNameTool,
     completeOnboarding: completeOnboardingTool,
+    parseReceipt: parseReceiptTool,
   },
 });

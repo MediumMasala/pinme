@@ -22,6 +22,7 @@ export {
   createUserTool,
   updateUserNameTool,
   completeOnboardingTool,
+  parseReceiptTool,
 } from './tools/pinme-tools.js';
 
 // Helper interface for agent context
@@ -46,7 +47,9 @@ export async function processMessage(context: AgentContext): Promise<void> {
 Media ID: ${mediaId}
 Caption: ${caption || 'No caption provided'}
 
-Please parse this receipt and log the expense.`;
+IMPORTANT: Use the parseReceipt tool with mediaId "${mediaId}" to extract the bill details (amount, merchant, category).
+Then use logExpense to save the expense with source "RECEIPT_IMAGE".
+Finally, send a confirmation message to the user.`;
   } else if (messageText) {
     userMessage = messageText;
   } else {

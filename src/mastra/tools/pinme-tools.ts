@@ -61,6 +61,30 @@ export const logExpenseTool = createTool({
         source: context.source as typeof ExpenseSource[keyof typeof ExpenseSource],
       });
 
+      // First expense hook: Send ledger link on first expense
+      try {
+        const user = await prisma.user.findUnique({
+          where: { phoneNumber: context.userPhone },
+          select: { id: true },
+        });
+        if (user) {
+          const expenseCount = await prisma.expense.count({
+            where: { userId: user.id },
+          });
+          if (expenseCount === 1) {
+            // This is their first expense - send ledger link
+            const ledgerUrl = `${config.ledger.baseUrl}/ledger-ui`;
+            await whatsappClient.sendTextMessage(
+              context.userPhone,
+              `P.S. You now have an expense ledger! View all your expenses anytime here: ${ledgerUrl}`
+            );
+          }
+        }
+      } catch (hookError) {
+        // Don't fail the expense creation if the hook fails
+        console.error('First expense hook error:', hookError);
+      }
+
       return {
         success: true,
         expenseId: result.id,

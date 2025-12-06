@@ -52,6 +52,13 @@ export const config = {
   giphy: {
     apiKey: optionalEnv('GIPHY_API_KEY', ''),
   },
+
+  // Ledger Module
+  ledger: {
+    jwtSecret: optionalEnv('LEDGER_JWT_SECRET', 'pinme-ledger-secret-change-in-prod'),
+    jwtExpiryDays: parseInt(optionalEnv('LEDGER_JWT_EXPIRY_DAYS', '7'), 10),
+    baseUrl: optionalEnv('LEDGER_BASE_URL', 'http://localhost:3000'),
+  },
 } as const;
 
 export type Config = typeof config;

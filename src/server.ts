@@ -1,10 +1,12 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { prisma, disconnectDb } from './db.js';
 import { whatsappWebhookRouter } from './routes/whatsappWebhook.js';
 import { adminRouter } from './routes/admin.js';
+import { ledgerRouter } from './routes/ledger.js';
 import { initializeScheduler } from './scheduler/dailyMessages.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,6 +17,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Request logging
 app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -34,6 +37,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Routes
 app.use('/whatsapp/webhook', whatsappWebhookRouter);
 app.use('/admin', adminRouter);
+app.use('/ledger', ledgerRouter);
 
 // Serve admin dashboard static files
 const adminDashboardPath = path.join(__dirname, '..', 'public', 'admin');
@@ -42,6 +46,15 @@ app.use('/admin-ui', express.static(adminDashboardPath));
 // SPA fallback for admin dashboard
 app.get('/admin-ui/*', (_req: Request, res: Response) => {
   res.sendFile(path.join(adminDashboardPath, 'index.html'));
+});
+
+// Serve ledger frontend static files
+const ledgerFrontendPath = path.join(__dirname, '..', 'public', 'ledger');
+app.use('/ledger-ui', express.static(ledgerFrontendPath));
+
+// SPA fallback for ledger frontend
+app.get('/ledger-ui/*', (_req: Request, res: Response) => {
+  res.sendFile(path.join(ledgerFrontendPath, 'index.html'));
 });
 
 // Redirect root to admin dashboard
@@ -99,7 +112,7 @@ async function main(): Promise<void> {
 ║   Endpoints:                                              ║
 ║   • GET  /health              - Health check              ║
 ║   • GET  /admin-ui            - Admin Dashboard           ║
-║   • GET  /admin/dashboard     - Dashboard API             ║
+║   • GET  /ledger-ui           - User Ledger               ║
 ║   • GET  /whatsapp/webhook    - Webhook verification      ║
 ║   • POST /whatsapp/webhook    - Receive messages          ║
 ║                                                           ║

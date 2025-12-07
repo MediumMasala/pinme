@@ -9,32 +9,15 @@ const POLL_INTERVAL_MS = 60_000; // 1 minute
 type ReminderWithUser = Reminder & { user: User };
 
 /**
- * Format a UTC date to human-readable IST string
- */
-function formatTimeIST(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-/**
- * Build the reminder message in PinMe's style
+ * Build the reminder message in PinMe's chill style
  */
 function buildReminderMessage(reminder: ReminderWithUser): string {
-  const userName = reminder.user.name || 'there';
-  const timeStr = formatTimeIST(reminder.remindAt);
+  const userName = reminder.user?.name && reminder.user.name.trim().length > 0
+    ? reminder.user.name.split(' ')[0]
+    : 'bhai';
+  const text = reminder.text;
 
-  return `Hey ${userName}!
-
-${reminder.text}
-
-(You asked me to remind you at ${timeStr})`;
+  return `Ping ping ⚡ ${userName}, ${text} karna tha abhi yaad hai?`;
 }
 
 /**

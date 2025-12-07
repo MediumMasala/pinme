@@ -20,7 +20,7 @@ async function getIdeasForUser(userId: number) {
   const ideas = await prisma.ideaItem.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    take: 20,
+    take: 50,
   });
 
   const totalCount = await prisma.ideaItem.count({
@@ -36,6 +36,48 @@ async function getIdeasForUser(userId: number) {
       tags: idea.tags,
       createdAt: idea.createdAt.toISOString(),
     })),
+  };
+}
+
+// Helper to get reminders for a user
+async function getRemindersForUser(userId: number) {
+  const reminders = await prisma.reminder.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  const totalCount = await prisma.reminder.count({
+    where: { userId },
+  });
+
+  const now = new Date();
+
+  return {
+    total: totalCount,
+    items: reminders.map((r) => {
+      // Determine status
+      let status: 'CANCELLED' | 'SENT' | 'UPCOMING' | 'OVERDUE';
+      if (r.cancelledAt) {
+        status = 'CANCELLED';
+      } else if (r.sentAt) {
+        status = 'SENT';
+      } else if (r.remindAt > now) {
+        status = 'UPCOMING';
+      } else {
+        status = 'OVERDUE';
+      }
+
+      return {
+        id: r.id,
+        text: r.text,
+        remindAt: r.remindAt.toISOString(),
+        createdAt: r.createdAt.toISOString(),
+        sentAt: r.sentAt ? r.sentAt.toISOString() : null,
+        cancelledAt: r.cancelledAt ? r.cancelledAt.toISOString() : null,
+        status,
+      };
+    }),
   };
 }
 
@@ -266,6 +308,8 @@ ledgerRouter.get('/data', requireLedgerAuth, async (req: Request, res: Response)
       })),
       // Ideas shared with PinMe
       ideas: await getIdeasForUser(user.id),
+      // Reminders
+      reminders: await getRemindersForUser(user.id),
     };
 
     res.json(response);

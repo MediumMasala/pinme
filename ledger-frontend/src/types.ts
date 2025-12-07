@@ -46,6 +46,21 @@ export interface IdeasData {
   items: IdeaItem[];
 }
 
+export interface ReminderItem {
+  id: number;
+  text: string;
+  remindAt: string;
+  createdAt: string;
+  sentAt: string | null;
+  cancelledAt: string | null;
+  status: 'UPCOMING' | 'SENT' | 'CANCELLED' | 'OVERDUE';
+}
+
+export interface RemindersData {
+  total: number;
+  items: ReminderItem[];
+}
+
 export interface LedgerData {
   user: LedgerUser;
   summary: LedgerSummary;
@@ -53,6 +68,7 @@ export interface LedgerData {
   byDay: DayData[];
   transactions: Transaction[];
   ideas: IdeasData;
+  reminders: RemindersData;
 }
 
 export type AuthState = 'loading' | 'phone' | 'otp' | 'authenticated';

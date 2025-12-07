@@ -149,13 +149,14 @@ model IdeaItem {
 // REMINDERS MODULE - Scheduled Notifications
 // ============================================
 model Reminder {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  text      String    // What to remind about
-  remindAt  DateTime  // When to send the reminder (UTC)
-  createdAt DateTime  @default(now())
-  sentAt    DateTime? // When the reminder was actually sent
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text        String    // What to remind about
+  remindAt    DateTime  // When to send the reminder (UTC)
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime? // When the reminder was actually sent
+  cancelledAt DateTime? // When the reminder was cancelled (if cancelled)
 
   @@index([userId, remindAt])
   @@index([remindAt, sentAt])

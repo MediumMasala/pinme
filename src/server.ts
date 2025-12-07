@@ -8,6 +8,7 @@ import { whatsappWebhookRouter } from './routes/whatsappWebhook.js';
 import { adminRouter } from './routes/admin.js';
 import { ledgerRouter } from './routes/ledger.js';
 import { initializeScheduler } from './scheduler/dailyMessages.js';
+import { startReminderWorker } from './workers/reminderWorker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -119,12 +120,17 @@ async function main(): Promise<void> {
 ║   Scheduled Jobs:                                         ║
 ║   • 11:30 AM IST - Morning reminder                       ║
 ║   • 11:30 PM IST - Daily expense summary                  ║
+║   • Reminder Worker - Polls every 60s                     ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
 
     // Initialize scheduled jobs
     initializeScheduler();
+
+    // Start reminder worker (polls for due reminders and sends WhatsApp messages)
+    // Always enabled - it's safe and essential for reminder functionality
+    startReminderWorker();
   });
 }
 

@@ -20,7 +20,7 @@ import {
   parsePdfTool,
 } from '../tools/pinme-tools.js';
 import { saveIdeaTool, listIdeasTool, suggestIdeasTool } from '../tools/ideas-tools.js';
-import { createReminderTool, listRemindersTool } from '../tools/reminder-tools.js';
+import { createReminderTool, listRemindersTool, updateReminderTool, cancelReminderTool } from '../tools/reminder-tools.js';
 
 export const PINME_SYSTEM_PROMPT = `
 You are **PinMe**, a WhatsApp-first personal console for:
@@ -320,6 +320,54 @@ Your behaviour:
 If user asks "what reminders do I have" or "mere pending reminders dikhao":
 - Use listReminders tool
 - Show their upcoming reminders in a neat list
+
+EDITING / CORRECTING REMINDERS:
+
+User may follow up with time corrections like:
+- "wait, I meant 5 PM not AM"
+- "make it 8pm instead"
+- "actually kal nahi, parso"
+- "change it to tomorrow"
+- "change time to 7:30"
+
+Your behaviour:
+- Recognise this as a CORRECTION to the last reminder, not a new one
+- Use updateReminder tool (it automatically updates the most recent pending reminder)
+- Convert the new time to ISO datetime
+- Confirm the update:
+
+  "Done, reminder update ho gaya.
+  Ab {new_time} pe yaad dila dunga."
+
+  Example:
+  User: "Remind me at 7"
+  You: "Set hai! Aaj 7 PM pe yaad dila dunga."
+  User: "Wait 7 AM"
+  You: "Okay, kal 7 AM pe update kar diya. Set hai!"
+
+AM vs PM clarification:
+- If user says just "7" or "7 baje", assume PM for daytime context (meetings, tasks)
+- If they correct ("7 AM", "subah 7"), use updateReminder to fix it
+- Never ask them to create a new reminder – just update the existing one
+
+CANCELLING REMINDERS:
+
+User may say:
+- "cancel that reminder"
+- "never mind"
+- "delete it"
+- "mat yaad dilana"
+- "cancel kar de"
+
+Your behaviour:
+- Use cancelReminder tool (automatically cancels the most recent pending reminder)
+- Confirm briefly:
+
+  "Done, reminder cancel kar diya."
+
+If user wants to cancel a specific reminder from a list, they'll mention it by description or number. Use the appropriate reminderId.
+
+IMPORTANT: When you create/update a reminder via tools, the backend worker will automatically send a WhatsApp reminder at the scheduled time. You do NOT need to send the reminder yourself later – just confirm to the user that it's set.
 
 10) SAVE IDEAS / NOTES / LINKS (SECOND BRAIN)
 
@@ -627,5 +675,7 @@ export const pinMeAgent = new Agent({
     // Reminder tools
     createReminder: createReminderTool,
     listReminders: listRemindersTool,
+    updateReminder: updateReminderTool,
+    cancelReminder: cancelReminderTool,
   },
 });

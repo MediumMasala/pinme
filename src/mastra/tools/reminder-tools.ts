@@ -165,12 +165,211 @@ export const listRemindersTool = createTool({
 });
 
 // ============================================
+// UPDATE REMINDER TOOL
+// ============================================
+export const updateReminderTool = createTool({
+  id: 'update-reminder',
+  description:
+    'Update an existing reminder (change time, text). Use when user says "change it to 5pm", "make it tomorrow", "actually at 8am", etc. Uses LAST_ACTIVE strategy - updates the most recent pending reminder if no ID specified.',
+  inputSchema: z.object({
+    userPhone: z.string().describe('Phone number of the user'),
+    reminderId: z.number().optional().describe('Specific reminder ID to update (optional - uses most recent if not provided)'),
+    newRemindAtISO: z.string().optional().describe('New time for the reminder (ISO datetime string in UTC)'),
+    newText: z.string().optional().describe('New text for the reminder'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    reminderId: z.number().optional(),
+    oldTime: z.string().optional(),
+    newTime: z.string().optional(),
+    newTimeHuman: z.string().optional(),
+    message: z.string().optional(),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find user
+      const user = await findUserByPhone(context.userPhone);
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found',
+        };
+      }
+
+      let reminder;
+
+      if (context.reminderId) {
+        // Find specific reminder
+        reminder = await prisma.reminder.findFirst({
+          where: {
+            id: context.reminderId,
+            userId: user.id,
+            sentAt: null,
+            cancelledAt: null,
+          },
+        });
+      } else {
+        // LAST_ACTIVE strategy: get most recently created pending reminder
+        reminder = await prisma.reminder.findFirst({
+          where: {
+            userId: user.id,
+            sentAt: null,
+            cancelledAt: null,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      if (!reminder) {
+        return {
+          success: false,
+          error: 'No pending reminder found to update',
+        };
+      }
+
+      // Prepare update data
+      const updateData: { remindAt?: Date; text?: string } = {};
+
+      if (context.newRemindAtISO) {
+        const newRemindAt = dayjs(context.newRemindAtISO).toDate();
+        if (newRemindAt <= new Date()) {
+          return {
+            success: false,
+            error: 'New reminder time must be in the future',
+          };
+        }
+        updateData.remindAt = newRemindAt;
+      }
+
+      if (context.newText) {
+        updateData.text = context.newText;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return {
+          success: false,
+          error: 'No updates provided (need newRemindAtISO or newText)',
+        };
+      }
+
+      const oldTime = reminder.remindAt.toISOString();
+
+      // Update the reminder
+      const updated = await prisma.reminder.update({
+        where: { id: reminder.id },
+        data: updateData,
+      });
+
+      const newTimeHuman = dayjs(updated.remindAt).tz('Asia/Kolkata').format('D MMM YYYY, h:mm A');
+
+      return {
+        success: true,
+        reminderId: updated.id,
+        oldTime,
+        newTime: updated.remindAt.toISOString(),
+        newTimeHuman,
+        message: `Reminder updated to ${newTimeHuman}`,
+      };
+    } catch (error) {
+      console.error('Update reminder error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update reminder',
+      };
+    }
+  },
+});
+
+// ============================================
+// CANCEL REMINDER TOOL
+// ============================================
+export const cancelReminderTool = createTool({
+  id: 'cancel-reminder',
+  description:
+    'Cancel a reminder. Use when user says "cancel that reminder", "never mind", "delete it", etc. Uses LAST_ACTIVE strategy if no ID specified.',
+  inputSchema: z.object({
+    userPhone: z.string().describe('Phone number of the user'),
+    reminderId: z.number().optional().describe('Specific reminder ID to cancel (optional - uses most recent if not provided)'),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    reminderId: z.number().optional(),
+    cancelledText: z.string().optional(),
+    message: z.string().optional(),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find user
+      const user = await findUserByPhone(context.userPhone);
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found',
+        };
+      }
+
+      let reminder;
+
+      if (context.reminderId) {
+        // Find specific reminder
+        reminder = await prisma.reminder.findFirst({
+          where: {
+            id: context.reminderId,
+            userId: user.id,
+            sentAt: null,
+            cancelledAt: null,
+          },
+        });
+      } else {
+        // LAST_ACTIVE strategy: get most recently created pending reminder
+        reminder = await prisma.reminder.findFirst({
+          where: {
+            userId: user.id,
+            sentAt: null,
+            cancelledAt: null,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      if (!reminder) {
+        return {
+          success: false,
+          error: 'No pending reminder found to cancel',
+        };
+      }
+
+      // Cancel the reminder (soft delete)
+      await prisma.reminder.update({
+        where: { id: reminder.id },
+        data: { cancelledAt: new Date() },
+      });
+
+      return {
+        success: true,
+        reminderId: reminder.id,
+        cancelledText: reminder.text,
+        message: 'Reminder cancelled successfully',
+      };
+    } catch (error) {
+      console.error('Cancel reminder error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel reminder',
+      };
+    }
+  },
+});
+
+// ============================================
 // NOTE: Reminder Scheduler (Background Job)
 // ============================================
 // The actual sending of reminders will be handled by a background job/cron.
 // This is outside the scope of the agent tools.
 // The scheduler should:
-// 1. Query for reminders where remindAt <= now AND sentAt IS NULL
+// 1. Query for reminders where remindAt <= now AND sentAt IS NULL AND cancelledAt IS NULL
 // 2. Send WhatsApp message to user
 // 3. Update sentAt timestamp
 // TODO: Implement reminder scheduler in src/jobs/reminder-scheduler.ts

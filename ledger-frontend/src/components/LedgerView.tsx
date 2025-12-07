@@ -3,6 +3,7 @@ import SummaryCards from './SummaryCards';
 import CategoryBreakdown from './CategoryBreakdown';
 import DayBreakdown from './DayBreakdown';
 import TransactionsList from './TransactionsList';
+import IdeasPanel from './IdeasPanel';
 
 interface LedgerViewProps {
   data: LedgerData;
@@ -29,6 +30,8 @@ export default function LedgerView({ data, onRefresh }: LedgerViewProps) {
       <DayBreakdown days={data.byDay} />
 
       <TransactionsList transactions={data.transactions} />
+
+      <IdeasPanel ideas={data.ideas} />
     </div>
   );
 }

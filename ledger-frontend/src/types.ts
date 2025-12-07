@@ -33,12 +33,26 @@ export interface Transaction {
   expenseDatetime: string;
 }
 
+export interface IdeaItem {
+  id: number;
+  content: string;
+  sourceUrl: string | null;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface IdeasData {
+  total: number;
+  items: IdeaItem[];
+}
+
 export interface LedgerData {
   user: LedgerUser;
   summary: LedgerSummary;
   byCategory: CategoryData[];
   byDay: DayData[];
   transactions: Transaction[];
+  ideas: IdeasData;
 }
 
 export type AuthState = 'loading' | 'phone' | 'otp' | 'authenticated';

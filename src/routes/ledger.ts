@@ -15,6 +15,30 @@ dayjs.extend(timezone);
 
 export const ledgerRouter = Router();
 
+// Helper to get ideas for a user
+async function getIdeasForUser(userId: number) {
+  const ideas = await prisma.ideaItem.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  });
+
+  const totalCount = await prisma.ideaItem.count({
+    where: { userId },
+  });
+
+  return {
+    total: totalCount,
+    items: ideas.map((idea) => ({
+      id: idea.id,
+      content: idea.content,
+      sourceUrl: idea.sourceUrl,
+      tags: idea.tags,
+      createdAt: idea.createdAt.toISOString(),
+    })),
+  };
+}
+
 // Extend Express Request to include user
 declare global {
   namespace Express {
@@ -240,6 +264,8 @@ ledgerRouter.get('/data', requireLedgerAuth, async (req: Request, res: Response)
         createdAt: e.createdAt.toISOString(),
         expenseDatetime: e.expenseDatetime.toISOString(),
       })),
+      // Ideas shared with PinMe
+      ideas: await getIdeasForUser(user.id),
     };
 
     res.json(response);

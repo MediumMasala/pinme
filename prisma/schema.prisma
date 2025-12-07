@@ -21,6 +21,8 @@ model User {
   messageLogs    MessageLog[]
   billSplits     BillSplit[]    @relation("PayerSplits")
   dailySummaries DailySummary[]
+  ideas          IdeaItem[]
+  reminders      Reminder[]
 }
 
 model Contact {
@@ -125,4 +127,36 @@ model LoginToken {
   createdAt   DateTime  @default(now())
 
   @@index([phoneNumber, expiresAt])
+}
+
+// ============================================
+// IDEAS MODULE - Second Brain / Thought Dump
+// ============================================
+model IdeaItem {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String   // Full text the user sent
+  sourceType String   @default("TEXT") // "TEXT" | "URL" | "MIXED"
+  sourceUrl  String?  // Article / tweet / link if present
+  tags       String[] @default([]) // Basic tags/keywords
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ============================================
+// REMINDERS MODULE - Scheduled Notifications
+// ============================================
+model Reminder {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String    // What to remind about
+  remindAt  DateTime  // When to send the reminder (UTC)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime? // When the reminder was actually sent
+
+  @@index([userId, remindAt])
+  @@index([remindAt, sentAt])
 }
